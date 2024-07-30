@@ -1,0 +1,46 @@
+name: ambari-tester
+on: push
+jobs:
+  run_tests:
+    runs-on: ubuntu-latest
+    env:
+      TEMP: /tmp
+      TEMPDIR: /tmp
+      TMP: /tmp
+      TMPDIR: /tmp
+      OPENSSL_CONF: /dev/null
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v2
+      - name: Setup python3.9
+        uses: actions/setup-python@v5.1.1
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+          run: pip3 install distro
+      - name: Setup java & maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+      - name: Check ambari-metrics
+        id: check_ambari_metrics
+        uses: andstor/file-existence-action@v3.0.0
+        with:
+          files: 'ambari-metrics'
+      - name: Ambari Metrics Build (deps)
+        if: steps.check_ambari_metrics.outputs.files_exists == 'true'
+        working-directory: ambari-metrics
+        run: mvn -T 3C install -DskipSurefireTests -DskipPythonTests -Dmaven.test.failure.ignore -DskipTests -Dfindbugs.skip -Drat.skip -Dmaven.artifact.threads=10 -X
+      - name: Ambari Service Advisor
+        run: mvn -T 3C -am install -pl ambari-serviceadvisor -DskipSurefireTests -DskipPythonTests -Dmaven.test.failure.ignore -DskipTests -Dfindbugs.skip -Drat.skip -Dmaven.artifact.threads=10
+      - name: RAT
+        run: mvn org.apache.rat:apache-rat-plugin:check -Dmaven.artifact.threads=10
+      - name: Ambari WebUI Tests
+        run: mvn -T 2C -am test -pl ambari-web,ambari-admin -Dmaven.artifact.threads=10 -Drat.skip
+      - name: Ambari Agent Tests
+        run: mvn -Dmaven.test.failure.ignore=true -am test -pl ambari-agent -Dmaven.artifact.threads=10 -Drat.skip
+      - name: Ambari Agent Tests
+        run: mvn -am test -pl ambari-server -DskipSurefireTests -Dmaven.test.failure.ignore -Dmaven.artifact.threads=10 -Drat.skip -Dcheckstyle.skip
+      - name: Ambari Server JTests
+        run: mvn -am test -pl ambari-server -DskipPythonTests -Dmaven.test.failure.ignore -Dmaven.artifact.threads=10 -Drat.skip
