@@ -21,6 +21,7 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '8'
+          cache: 'maven'
       - name: Check ambari-metrics
         id: check_ambari_metrics
         uses: andstor/file-existence-action@v3.0.0
