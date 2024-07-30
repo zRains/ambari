@@ -1,6 +1,34 @@
 name: ambari-tester
 on: push
 jobs:
+  setup-dependencies:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-dependencies.outputs.cache-hit }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - &setup-java-maven
+        name: Setup java & maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
+          cache: 'maven'
+
+      - name: Cache Maven dependencies
+        id: cache-dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Install Maven dependencies
+        run: mvn dependency:go-offline
+
   run_tests:
     runs-on: ubuntu-latest
     env:
@@ -12,36 +40,48 @@ jobs:
     steps:
       - name: Checkout the repository
         uses: actions/checkout@v2
+        
       - name: Setup python3.9
         uses: actions/setup-python@v5.1.1
         with:
           python-version: '3.9'
-      - name: Setup java & maven
-        uses: actions/setup-java@v4
+          
+      - name: Install distro
+        run: pip3 install distro
+          
+      - <<: *setup-java-maven
+
+      - name: Restore Maven dependencies from cache
+        uses: actions/cache@v4
         with:
-          distribution: 'temurin'
-          java-version: '8'
-          cache: 'maven'
+          path: ~/.m2/repository
+          key: ${{ needs.cache-dependencies.outputs.cache-key }}
+      
       - name: Check ambari-metrics
         id: check_ambari_metrics
         uses: andstor/file-existence-action@v3.0.0
         with:
           files: 'ambari-metrics'
-      - name: Install distro
-        run: pip3 install distro
+        
       - name: Ambari Metrics Build (deps)
         if: steps.check_ambari_metrics.outputs.files_exists == 'true'
         working-directory: ambari-metrics
         run: mvn -T 3C install -DskipSurefireTests -DskipPythonTests -Dmaven.test.failure.ignore -DskipTests -Dfindbugs.skip -Drat.skip -Dmaven.artifact.threads=10 -X
+      
       - name: Ambari Service Advisor
         run: mvn -T 3C -am install -pl ambari-serviceadvisor -DskipSurefireTests -DskipPythonTests -Dmaven.test.failure.ignore -DskipTests -Dfindbugs.skip -Drat.skip -Dmaven.artifact.threads=10
+      
       - name: RAT
         run: mvn org.apache.rat:apache-rat-plugin:check -Dmaven.artifact.threads=10
+     
       - name: Ambari WebUI Tests
         run: mvn -T 2C -am test -pl ambari-web,ambari-admin -Dmaven.artifact.threads=10 -Drat.skip
+     
       - name: Ambari Agent Tests
         run: mvn -Dmaven.test.failure.ignore=true -am test -pl ambari-agent -Dmaven.artifact.threads=10 -Drat.skip
+     
       - name: Ambari Server PyTests
         run: mvn -X -am test -pl ambari-server -DskipSurefireTests -Dmaven.test.failure.ignore -Dmaven.artifact.threads=10 -Drat.skip -Dcheckstyle.skip
+    
       - name: Ambari Server JTests
         run: mvn -am test -pl ambari-server -DskipPythonTests -Dmaven.test.failure.ignore -Dmaven.artifact.threads=10 -Drat.skip
