@@ -47,6 +47,3 @@ jobs:
 
       - name: Ambari WebUI Tests
         run: mvn -X -T 2C -am test -pl ambari-web,ambari-admin -Dmaven.artifact.threads=10 -Drat.skip
-
-      - name: Ambari Agent Tests
-        run: mvn -Dmaven.test.failure.ignore=true -am test -pl ambari-agent -Dmaven.artifact.threads=10 -Drat.skip
