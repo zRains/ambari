@@ -20,27 +20,6 @@
  * This file contains patched methods for twitter bootstrap.js
  */
 
-/**
- * Fixes error when <code>destroy</code> method called more than one time.
- * For more info check https://github.com/twbs/bootstrap/issues/20511
- */
-$.fn.tooltip.Constructor.prototype.destroy = function() {
-  var that = this
-  clearTimeout(this.timeout)
-  this.hide(function () {
-    if (that.$element !== null) {
-      that.$element.off('.' + that.type).removeData('bs.' + that.type)
-    }
-    if (that.$tip) {
-      that.$tip.detach()
-    }
-    that.$tip = null
-    that.$arrow = null
-    that.$viewport = null
-    that.$element = null
-  })
-};
-
 // function required for clearMenus
 var getParent = function($this) {
   var selector = $this.attr('data-target');
@@ -82,5 +61,4 @@ $(document).on('click.bs.dropdown.data-api', clearMenus);
 $(document).on('click.bs.dropdown.data-api', '.dropdown form', function (e) {
   e.stopPropagation()
 });
-$(document).on('click.bs.dropdown.data-api', '[data-toggle="dropdown"]', $.fn.dropdown.Constructor.prototype.toggle);
 
